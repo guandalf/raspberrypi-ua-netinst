@@ -1,0 +1,7 @@
+label: dos
+label-id: 0x522ac426
+device: /dev/nbd0
+unit: sectors
+sector-size: 512
+
+/dev/nbd0p1 : start=        2048, size=     2095104, type=c
