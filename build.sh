@@ -577,9 +577,8 @@ function create_cpio {
 	cp --preserve=xattr,timestamps tmp/lib/*/libpam_misc.so.0.* rootfs/lib/libpam_misc.so.0
 	cp --preserve=xattr,timestamps tmp/lib/*/libpamc.so.0.* rootfs/lib/libpamc.so.0
 
-	# libpcre3 components
-	cp --preserve=xattr,timestamps tmp/lib/*/libpcre.so.3.* rootfs/lib/libpcre.so.3
-	cp --preserve=xattr,timestamps tmp/usr/lib/*/libpcreposix.so.3.* rootfs/usr/lib/libpcreposix.so.3
+	# libpcre components
+	cp --preserve=xattr,timestamps tmp/usr/lib/*/libpcre2-8.so.0.* rootfs/usr/lib/libpcre2-8.so.0
 
 	# libpcsclite components
 	cp --preserve=xattr,timestamps tmp/usr/lib/*/libpcsclite.so.1 rootfs/lib/libpcsclite.so.1
