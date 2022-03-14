@@ -3,11 +3,14 @@
 set -e # exit if any command fails
 umask 022
 
+[[ $(id -u) -eq 0 ]] || { echo >&2 "Must be root to run script"; exit 1; }
+
 build_dir=./build_dir
 packages_dir=./packages
 resources_dir=./res
 scripts_dir=./scripts
 device=/dev/nbd0
+partition=p1
 
 # update version and date
 version_tag="$(git describe --exact-match --tags HEAD 2> /dev/null || true)"
@@ -25,33 +28,28 @@ fi
 
 qemu-img create -f qcow2 ${imgfile} 1G
 
-sudo /bin/bash <<EOF
+modprobe nbd
+qemu-nbd --connect=${device} ${imgfile}
+/sbin/sfdisk ${device} < part_table.txt
+mkdosfs ${device}${partition}
 
-	modprobe nbd
-	qemu-nbd --connect=${device} ${imgfile}
-	/sbin/sfdisk ${device} < part_table.txt
-	mkdosfs ${device}p1
+options="rw,nosuid,nodev,uid=1000,gid=1000,shortname=mixed,dmask=0077,utf8=1,showexec,flush,uhelper=udisks2"
+[ -d ./mnt ] || mkdir ./mnt
+mount -t vfat -o ${options} ${device}${partition} ./mnt
 
-	[ -d ./tmp ] || mkdir ./tmp
-	mount -t vfat ${device}p1 ./tmp
+cp -a ./build_dir/bootfs/* ./mnt/
 
-	cd ./tmp
-	unzip ../*.zip
-	cd ..
+umount ${device}${partition}
+rmdir ./mnt
+qemu-nbd --disconnect ${device}
 
-	umount ./tmp
-	qemu-nbd --disconnect ${device}
-	# rmmod nbd
-
-	qemu-system-aarch64 \
-	-M raspi3 \
-	-append "rw earlyprintk loglevel=8 console=ttyAMA0,115200 dwc_otg.lpm_enable=0 root=/dev/mmcblk0p2 rootdelay=1" \
-	-dtb ./tmp/raspberrypi-ua-netinst/bcm2710-rpi-3-b-plus.dtb \
-	-sd raspberrypi-ua-netinst-git-20e2e69.qcow2 \
-	-kernel ./tmp/raspberrypi-ua-netinst/kernel8.img \
-	-m 1G -smp 4 -serial stdio -usb -device usb-mouse -device usb-kbd \
-	-initrd ./tmp/raspberrypi-ua-netinst/initramfs.gz
-
-	rm -rf ./tmp
-EOF
-
+qemu-system-aarch64 \
+-M raspi3 \
+-append "rw earlyprintk loglevel=8 console=ttyAMA0,115200 dwc_otg.lpm_enable=0 root=/dev/mmcblk0p2 rootdelay=1" \
+-dtb ./build_dir/bootfs/raspberrypi-ua-netinst/bcm2710-rpi-3-b-plus.dtb \
+-sd ${imgfile} \
+-kernel ./build_dir/bootfs/raspberrypi-ua-netinst/kernel8.img \
+-m 1G -smp 4 -serial stdio -usb -device usb-mouse -device usb-kbd \
+-initrd ./build_dir/bootfs/raspberrypi-ua-netinst/initramfs.gz \
+-device usb-net,netdev=net0 \
+-netdev tap,ifname=tap0,id=net0
